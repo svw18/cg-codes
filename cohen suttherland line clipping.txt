@@ -1,0 +1,103 @@
+#include <iostream>
+#include <graphics.h>
+#include <cmath>
+using namespace std;
+
+// Region codes for Cohen-Sutherland
+const int LEFT = 1, RIGHT = 2, BOTTOM = 4, TOP = 8;
+int xmax, ymax, xmin, ymin;
+
+// Function to calculate the region code of a point
+int getCode(int x, int y) {
+    int code = 0;
+    if (y > ymax) code |= TOP;
+    if (y < ymin) code |= BOTTOM;
+    if (x < xmin) code |= LEFT;
+    if (x > xmax) code |= RIGHT;
+    return code;
+}
+
+// Line drawing function (optional, uses putpixel)
+void drawLine(int x1, int y1, int x2, int y2) {
+    line(x1, y1, x2, y2);
+}
+
+int main() {
+    int gd = DETECT, gm;
+    initgraph(&gd, &gm, "C:\\TURBOC3\\BGI");
+
+    // Input for clipping window and line endpoints
+    cout << "Enter top-left (xmin, ymin) and bottom-right (xmax, ymax) of clipping rectangle: ";
+    cin >> xmin >> ymin >> xmax >> ymax;
+    cout << "Enter line endpoints (x1, y1) and (x2, y2): ";
+    int x1, y1, x2, y2;
+    cin >> x1 >> y1 >> x2 >> y2;
+
+    // Draw clipping rectangle and original line
+    rectangle(xmin, ymin, xmax, ymax);
+    drawLine(x1, y1, x2, y2);
+    getch(); // Wait for user input before clipping
+
+    // Perform Cohen-Sutherland Line Clipping
+    int outcode1 = getCode(x1, y1);
+    int outcode2 = getCode(x2, y2);
+    bool accept = false;
+
+    while (true) {
+        if (outcode1 == 0 && outcode2 == 0) {
+            // Both endpoints inside the clipping window
+            accept = true;
+            break;
+        } else if (outcode1 & outcode2) {
+            // Both endpoints share an outside region (trivially rejected)
+            break;
+        } else {
+            // Line needs clipping
+            int outcodeOut;
+            float x, y;
+
+            // Choose an outside point
+            outcodeOut = (outcode1 != 0) ? outcode1 : outcode2;
+
+            // Find intersection point
+            if (outcodeOut & TOP) { // Point above clip window
+                x = x1 + (x2 - x1) * (ymax - y1) / (float)(y2 - y1);
+                y = ymax;
+            } else if (outcodeOut & BOTTOM) { // Point below clip window
+                x = x1 + (x2 - x1) * (ymin - y1) / (float)(y2 - y1);
+                y = ymin;
+            } else if (outcodeOut & LEFT) { // Point to the left of clip window
+                x = xmin;
+                y = y1 + (y2 - y1) * (xmin - x1) / (float)(x2 - x1);
+            } else if (outcodeOut & RIGHT) { // Point to the right of clip window
+                x = xmax;
+                y = y1 + (y2 - y1) * (xmax - x1) / (float)(x2 - x1);
+            }
+
+            // Update the outside point and its region code
+            if (outcodeOut == outcode1) {
+                x1 = x;
+                y1 = y;
+                outcode1 = getCode(x1, y1);
+            } else {
+                x2 = x;
+                y2 = y;
+                outcode2 = getCode(x2, y2);
+            }
+        }
+    }
+
+    cleardevice(); // Clear screen
+    rectangle(xmin, ymin, xmax, ymax); // Redraw clipping rectangle
+
+    if (accept) {
+        // Draw clipped line
+        drawLine(x1, y1, x2, y2);
+    } else {
+        cout << "Line rejected!" << endl;
+    }
+
+    getch();
+    closegraph();
+    return 0;
+}
